@@ -111,7 +111,6 @@ class Operate:
         
     def _automated_door_move(self, direction):
         self.status = DoorStatus.MOTION
-
         if direction == DoorDirection.UP:
             self.dc_motor.forward(100)
         if direction == DoorDirection.DOWN:

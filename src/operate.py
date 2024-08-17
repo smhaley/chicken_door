@@ -61,6 +61,9 @@ class Operate:
             return 
             
         else:
+            
+            print("#$%^&*()$%^&*()$%^&*() fault #$%^&*()$%^&*()$%^&*()")
+            print(f"upper_status: {upper_status}, lower_status: {lower_status}", upper_status == ReedSwitchStatus.CLOSED and lower_status == ReedSwitchStatus.OPEN)
             self.add_fault()
             
  
@@ -95,16 +98,17 @@ class Operate:
             
             if direction == Operate.DOOR_UP and upper_status == ReedSwitchStatus.CLOSED:
                 self.dc_motor.stop()
-                print( 'DOOR IS NOW OPEN ' )
+                print( ' DOOOOR IS NOW OPEN ' )
                 break
             if direction == Operate.DOOR_DOWN and lower_status == ReedSwitchStatus.CLOSED:
                 self.dc_motor.stop()
-                print( 'DOOR IS NOW CLOSED ' )
+                print( ' DOOOOR IS NOW CLOSED ' )
                 self
                 break
             
+            print(ticks)
+            
             if ticks > self.max_run_time:
-                print('fault out')
                 self.add_fault()
                 break
             
@@ -114,14 +118,15 @@ class Operate:
         
     def move_door(self, direction):
         self.status = Operate.DOOR_MOTION
-
+        print('handle move door',  direction == Operate.DOOR_DOWN, direction)
+        
         if direction == Operate.DOOR_UP:
             self.dc_motor.forward(100)
         if direction == Operate.DOOR_DOWN:
             self.dc_motor.backward(100)
         
         self.operate_door(direction)
-        
+        print('past block')
         self.set_door_status()
         self.operate()
 
@@ -135,11 +140,14 @@ class Operate:
     def init(self):
         self._initialize_door()
         self._initialize_times()
+        print(f"self.status={self.status}")
+        print(f"reed lower = {self.lower_reed.status } reed upper = {self.upper_reed.status }")
         self.operate()
         
  
     def handle_button_override(self, direction):
-
+        print('override', direction, self.status, direction == Operate.DOOR_UP and self.status == Operate.DOOR_CLOSED)
+        
         if direction == Operate.DOOR_UP and self.status == Operate.DOOR_CLOSED:
             self.status = Operate.DOOR_MOTION
             self.dc_motor.forward(100)
@@ -156,14 +164,19 @@ class Operate:
     
             
     def operate(self):
-               
-        while self.status != Operate.DOOR_MOTION or self.fault <= 1:
+        
+        print("operate", self.fault)
+        
+        while self.status != Operate.DOOR_MOTION and self.fault < 1:
             now = self.rtc.get_time()
             day = self._get_day(now)
             current_hour = self._get_hour(now)
             
             self.set_door_status()
             
+            print(f" status = {self.status}, fault: {self.fault}")
+            
+            #self.upper_reed 
             if up_button.value():
                 print(" button up", self.status)
                 self.handle_button_override(Operate.DOOR_UP)
@@ -182,7 +195,7 @@ class Operate:
             sun_times = self._get_up_down_hours(now)
             
             print(f"Up: {sun_times["up"]}, down: {sun_times["down"]}, hour: {current_hour}") 
-            print(f" status = {self.status}, fault: {self.fault}")
+            
             
             if current_hour < sun_times["up"]  and self.status == Operate.DOOR_OPEN:
                 self.move_door(Operate.DOOR_DOWN)
@@ -198,6 +211,9 @@ class Operate:
                 print("final")
                 break
             
+            
+            print("HERE")
+            print(rtc.get_time())
             sleep(1)
 
 
@@ -224,7 +240,8 @@ dc_motor = DCMotor(pin1, pin2, enable, 15000, 65535)
 upper_reed_switch_pin = 'GP18'
 lower_reed_switch_pin = 'GP19'
 
-op = Operate(dc_motor, up_button, down_button, reset_button, rtc, upper_reed_switch_pin, lower_reed_switch_pin, sun, 40)
+op = Operate(dc_motor, up_button, down_button, reset_button, rtc, upper_reed_switch_pin, lower_reed_switch_pin, sun, 10)
+
 
 
 

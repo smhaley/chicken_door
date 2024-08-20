@@ -29,7 +29,7 @@ class Operate:
         self.lower_reed = ReedSwitchControl(reeds['lower_reed_switch'])
         self.up_time = params['UP_RUN_TIME']
         self.sun = sun
-        self.status = None
+        self.status = self._set_door_status()
         self.fault = 0
         self.max_run_time = params['MAX_RUN_TIME']
         self.reed_buffer = params['REED_BUFFER']

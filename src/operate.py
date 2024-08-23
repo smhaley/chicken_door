@@ -1,5 +1,8 @@
 from time import sleep
 from reed import ReedSwitchStatus, ReedSwitchControl
+from machine import Pin
+
+led = Pin("LED", Pin.OUT)
 
 class DoorDirection:
     UP = 'up'
@@ -9,6 +12,9 @@ class DoorStatus:
     OPEN = 'open'
     CLOSED = 'closed'
     MOTION = 'motion'
+
+
+REED_BUFFER = 2.4
 
 class Operate:
    
@@ -26,8 +32,18 @@ class Operate:
         self.max_run_time = max_run_time
         
         self.dc_motor.stop()
+        self._initialize_door()
+
+        
+    def _initialize_door(self):
+        led.toggle()
+        self._set_door_status()
+        print(self.status)
+        if self.status == DoorStatus.MOTION:
+            self._automated_door_move(DoorDirection.DOWN)
         
     def _add_fault(self):
+        led.toggle()
         self.fault += 1
         self.dc_motor.stop()
     
@@ -49,7 +65,7 @@ class Operate:
         sun_times = self.sun.getSunTimes(time_tuple)
         sun_rise = sun_times["sunrise"]["decimal"]
         sun_set = sun_times["sunset"]["decimal"]
-        return {"up": sun_rise, "down": sun_set}
+        return {"up": sun_rise, "down": sun_set + .5}
     
     def _get_hour(self, time):
         hour, mins = time[3:5]
@@ -64,22 +80,24 @@ class Operate:
             lower_status = self.lower_reed.get_status()
             
             if direction == DoorDirection.UP and upper_status == ReedSwitchStatus.CLOSED:
+                sleep(REED_BUFFER)
                 self.dc_motor.stop()
                 print( 'DOOR IS NOW OPEN ' )
                 break
             if direction == DoorDirection.DOWN and lower_status == ReedSwitchStatus.CLOSED:
+                sleep(REED_BUFFER)
                 self.dc_motor.stop()
                 print( 'DOOR IS NOW CLOSED ' )
                 break
             
             print(ticks)
             
-            if ticks > self.max_run_time:
+            if ticks > self.max_run_time*5:
                 self._add_fault()
                 break
             
             ticks += 1
-            sleep(1)
+            sleep(.2)
         self._set_door_status()    
         
         
@@ -169,6 +187,7 @@ class Operate:
     
                 sleep(1)
         except:
+            led.toggle()
             self.dc_motor.stop()
 
 

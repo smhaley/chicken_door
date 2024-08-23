@@ -29,7 +29,7 @@ if __name__ == "__main__":
     down_button = Pin(14, Pin.IN, Pin.PULL_DOWN)
     reset_button = Pin(13, Pin.IN, Pin.PULL_DOWN)
 
-    op = Operate(dc_motor, up_button, down_button, reset_button, rtc, upper_reed_switch_pin, lower_reed_switch_pin, sun, 10)
+    op = Operate(dc_motor, up_button, down_button, reset_button, rtc, upper_reed_switch_pin, lower_reed_switch_pin, sun, 100)
     op.engage_door()
 
 

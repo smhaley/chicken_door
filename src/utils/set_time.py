@@ -8,7 +8,7 @@ def set_machine_time(i2c):
 
     pre = list(time.localtime())
     pre[6] = 0
-    pre[3] = pre[3] - 1 ## remove if in standard time
+    pre[3] = pre[3] - 1 # remove if in standard time
     fixed = tuple(pre)
     est = time.localtime(time.mktime(fixed))
 

@@ -14,11 +14,9 @@ class DoorStatus:
     MOTION = 'motion'
 
 
-REED_BUFFER = 2.4
-
 class Operate:
    
-    def __init__(self, dc_motor, up_button, down_button, reset_button, rtc, upper_reed_switch_pin, lower_reed_switch_pin, sun, max_run_time = 40):       
+    def __init__(self, dc_motor, up_button, down_button, reset_button, rtc, upper_reed_switch_pin, lower_reed_switch_pin, sun, reed_buffer = 2.4, up_time = 32, max_run_time = 40):       
         self.dc_motor = dc_motor
         self.up_button = up_button
         self.down_button = down_button
@@ -26,10 +24,12 @@ class Operate:
         self.rtc = rtc
         self.upper_reed = ReedSwitchControl(upper_reed_switch_pin)
         self.lower_reed = ReedSwitchControl(lower_reed_switch_pin)
+        self.up_time = up_time
         self.sun = sun
-        self.status = self._set_door_status()
+        self.status = None
         self.fault = 0
         self.max_run_time = max_run_time
+        self.reed_buffer = reed_buffer
         
         self.dc_motor.stop()
         self._initialize_door()
@@ -38,9 +38,6 @@ class Operate:
     def _initialize_door(self):
         led.toggle()
         self._set_door_status()
-        print(self.status)
-        if self.status == DoorStatus.MOTION:
-            self._automated_door_move(DoorDirection.DOWN)
         
     def _add_fault(self):
         led.toggle()
@@ -53,10 +50,15 @@ class Operate:
         statuses = {
             (ReedSwitchStatus.OPEN, ReedSwitchStatus.OPEN): DoorStatus.MOTION,
             (ReedSwitchStatus.CLOSED, ReedSwitchStatus.OPEN): DoorStatus.OPEN,
-            (ReedSwitchStatus.OPEN, ReedSwitchStatus.CLOSED): DoorStatus.CLOSED
+            (ReedSwitchStatus.OPEN, ReedSwitchStatus.CLOSED): DoorStatus.CLOSED,
         }
         
-        if status_key in statuses:
+        system_determined_status = self.status in [DoorStatus.OPEN, DoorStatus.CLOSED]
+        
+        if statuses[status_key] == DoorStatus.MOTION and system_determined_status:
+            """Accounts for system established open/close. Adjusts for red closure speed"""
+            return 
+        elif status_key in statuses:
             self.status = statuses[status_key]
         else:
             self._add_fault()            
@@ -73,26 +75,24 @@ class Operate:
     
     def _operate_door(self, direction):
         ticks = 0
-        
+        check_adjustment = 5
         while self.status == DoorStatus.MOTION:
                         
             upper_status = self.upper_reed.get_status()
             lower_status = self.lower_reed.get_status()
             
-            if direction == DoorDirection.UP and upper_status == ReedSwitchStatus.CLOSED:
-                sleep(REED_BUFFER)
+            if direction == DoorDirection.UP and (upper_status == ReedSwitchStatus.CLOSED or ticks >= self.up_time * check_adjustment):
+                sleep(self.reed_buffer)
                 self.dc_motor.stop()
-                print( 'DOOR IS NOW OPEN ' )
+                self.status = DoorStatus.OPEN
                 break
             if direction == DoorDirection.DOWN and lower_status == ReedSwitchStatus.CLOSED:
-                sleep(REED_BUFFER)
+                sleep(self.reed_buffer)
                 self.dc_motor.stop()
-                print( 'DOOR IS NOW CLOSED ' )
+                self.status = DoorStatus.CLOSED
                 break
             
-            print(ticks)
-            
-            if ticks > self.max_run_time*5:
+            if ticks > self.max_run_time * check_adjustment:
                 self._add_fault()
                 break
             
@@ -104,8 +104,7 @@ class Operate:
         
     def _automated_door_move(self, direction):
         self.status = DoorStatus.MOTION
-        print('handle move door',  direction == DoorDirection.DOWN, direction)
-        
+
         if direction == DoorDirection.UP:
             self.dc_motor.forward(100)
         if direction == DoorDirection.DOWN:
@@ -118,13 +117,11 @@ class Operate:
         
     def engage_door(self):
         if self.status == DoorStatus.MOTION:
-            self._automated_door_mover(DoorDirection.DOWN)
+            self._automated_door_move(DoorDirection.DOWN)   
         self._operate()
         
     def _override_door(self, direction):
-        try:
-            print('override', direction, self.status, direction == DoorDirection.UP and self.status == DoorStatus.CLOSED)
-            
+        try:  
             if direction == DoorDirection.UP and self.status == DoorStatus.CLOSED:
                 self.status = DoorStatus.MOTION
                 self.dc_motor.forward(100)
@@ -133,7 +130,6 @@ class Operate:
                 self.status = DoorStatus.MOTION
                 self.dc_motor.backward(100)            
                 self._operate_door(direction)
-            print(self.status)
             
             while True:
                 if self.reset_button.value():
@@ -161,8 +157,6 @@ class Operate:
                 self._set_door_status()
                 sun_times = self._get_up_down_hours(now)
                 
-                print(f" status = {self.status}, fault: {self.fault}")
-                print(f"Up: {sun_times["up"]}, down: {sun_times["down"]}, hour: {current_hour}")
                 #button based operations
                 if self.up_button.value():
                     self._override_door(DoorDirection.UP)
@@ -189,6 +183,3 @@ class Operate:
         except:
             led.toggle()
             self.dc_motor.stop()
-
-
-

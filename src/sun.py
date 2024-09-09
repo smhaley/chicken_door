@@ -119,3 +119,13 @@ class Sun:
     
         return v
  
+#42.2241° N, 72.7334° W
+coords = {
+    "latitude": 42.2241,
+    "longitude": -72.7334
+}
+import time
+
+print(time.localtime())
+sun = Sun(coords, -5)
+print(sun.getSunTimes(time.localtime()))

@@ -16,11 +16,14 @@ class DoorStatus:
 
 class Operate:
    
-    def __init__(self, dc_motor, up_button, down_button, reset_button, rtc, upper_reed_switch_pin, lower_reed_switch_pin, sun, reed_buffer = 2.4, up_time = 32, max_run_time = 40):       
+    def __init__(self, dc_motor, buttons, indicators, rtc, upper_reed_switch_pin, lower_reed_switch_pin, sun, reed_buffer = 2.4, up_time = 32, max_run_time = 40):       
         self.dc_motor = dc_motor
-        self.up_button = up_button
-        self.down_button = down_button
-        self.reset_button = reset_button
+        self.up_button = buttons.up_button
+        self.down_button = buttons.down_button
+        self.reset_button = buttons.reset_button
+        self.fault_indicator = indicators.fault
+        self.motion_indicator = indicators.motion
+        self.manual_indicator = indicators.manual
         self.rtc = rtc
         self.upper_reed = ReedSwitchControl(upper_reed_switch_pin)
         self.lower_reed = ReedSwitchControl(lower_reed_switch_pin)
@@ -56,7 +59,7 @@ class Operate:
         system_determined_status = self.status in [DoorStatus.OPEN, DoorStatus.CLOSED]
         
         if statuses[status_key] == DoorStatus.MOTION and system_determined_status:
-            """Accounts for system established open/close. Adjusts for red closure speed"""
+            """Accounts for system established open/close. Adjusts for reed closure speed"""
             return 
         elif status_key in statuses:
             self.status = statuses[status_key]
@@ -76,6 +79,7 @@ class Operate:
     def _operate_door(self, direction):
         ticks = 0
         check_adjustment = 5
+        self.motion_indicator(1)
         while self.status == DoorStatus.MOTION:
                         
             upper_status = self.upper_reed.get_status()
@@ -83,11 +87,13 @@ class Operate:
             
             if direction == DoorDirection.UP and (upper_status == ReedSwitchStatus.CLOSED or ticks >= self.up_time * check_adjustment):
                 sleep(self.reed_buffer)
+                self.motion_indicator(0)
                 self.dc_motor.stop()
                 self.status = DoorStatus.OPEN
                 break
             if direction == DoorDirection.DOWN and lower_status == ReedSwitchStatus.CLOSED:
                 sleep(self.reed_buffer)
+                self.motion_indicator(0)
                 self.dc_motor.stop()
                 self.status = DoorStatus.CLOSED
                 break
@@ -121,6 +127,7 @@ class Operate:
         self._operate()
         
     def _override_door(self, direction):
+        self.manual_indicator(1)
         try:  
             if direction == DoorDirection.UP and self.status == DoorStatus.CLOSED:
                 self.status = DoorStatus.MOTION
@@ -133,6 +140,7 @@ class Operate:
             
             while True:
                 if self.reset_button.value():
+                    self.manual_indicator(0)
                     break
                 if self.up_button.value():
                     self._override_door(DoorDirection.UP)
@@ -181,5 +189,6 @@ class Operate:
     
                 sleep(1)
         except:
+            self.fault_indicator(1)
             led.toggle()
             self.dc_motor.stop()

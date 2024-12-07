@@ -3,7 +3,7 @@ from machine import Pin, PWM, I2C
 from dc_motor import DCMotor
 from operate import Operate
 from sun import Sun
-
+from auxilary import Buttons, Indicators
 # settings related to run voltage
 run_params = {
     12: {
@@ -17,37 +17,65 @@ run_params = {
         'REED_BUFFER': 3.0
         }
     }
-
-
-if __name__ == "__main__":
-
+ 
+class PinConfig:
+    motor = {
+        "pin1": 15,
+        "pin2": 14,
+        "enable": 13
+    }
+    buttons = {
+        "up": 28,
+        "down": 26, 
+        "reset": 27
+    }
+    indicators = {
+        "fault": 16,
+        "motion": 17,
+        "manual": 18
+    }
+    reeds = {
+        'upper_reed_switch': 'GP18',
+        'lower_reed_switch': 'GP19'
+    }
+    
+    rtc = {
+        'scl': 9,
+        'sda': 8
+    }
+    
+    
+class LocationConfig:
     lat = 42.2293
     lon = -72.7301
     time_offset = -5
     
-    coords = {'longitude' : lon, 'latitude' : lat}
-    sun = Sun(coords, time_offset)
 
-    rtc_i2c = I2C(0, scl=Pin(9), sda=Pin(8))
+
+if __name__ == "__main__":
+    
+    pins = PinConfig()
+    location = LocationConfig()
+
+    coords = {'longitude' : location.lon, 'latitude' : location.lat}
+    sun = Sun(coords, location.time_offset)
+
+    rtc_i2c = I2C(0, scl=Pin(pins.rtc['scl']), sda=Pin(pins.rtc['sda']))
     rtc = DS3231(rtc_i2c)
 
     frequency = 1000
-    pin1 = Pin(15, Pin.OUT)
-    pin2 = Pin(14, Pin.OUT)
+    pin1 = Pin(pins.motor['pin1'], Pin.OUT)
+    pin2 = Pin(pins.motor['pin2'], Pin.OUT)
     enable = PWM(Pin(13), frequency)
     dc_motor = DCMotor(pin1, pin2, enable, 15000, 65535)
 
-
-    upper_reed_switch_pin = 'GP18'
-    lower_reed_switch_pin = 'GP19'
     
-    up_button = Pin(28, Pin.IN, Pin.PULL_DOWN)
-    down_button = Pin(26, Pin.IN, Pin.PULL_DOWN)
-    reset_button = Pin(27, Pin.IN, Pin.PULL_DOWN)
+    buttons = Buttons(pins.buttons['up'], pins.buttons['down'], pins.buttons['reset'])
+    indicators = Indicators(pins.indicators['fault'], pins.indicators['motion'], pins.indicators['manual'])
     
     params = run_params[14]
     
-    op = Operate(dc_motor, up_button, down_button, reset_button, rtc, upper_reed_switch_pin, lower_reed_switch_pin, sun, params['REED_BUFFER'], params['UP_RUN_TIME'], params['MAX_RUN_TIME'])
+    op = Operate(dc_motor, buttons, indicators, rtc, pins.reeds['upper_reed_switch'], pins.reeds['lower_reed_switch'], sun, params['REED_BUFFER'], params['UP_RUN_TIME'], params['MAX_RUN_TIME'])
     op.engage_door()
 
 

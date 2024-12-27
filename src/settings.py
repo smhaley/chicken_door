@@ -2,7 +2,7 @@ class RunParameters:
     #by voltage
     twelve = {
         'MAX_RUN_TIME': 45,
-        'UP_RUN_TIME': 30,
+        'UP_RUN_TIME': 38,
         'REED_BUFFER': 3.0
         }
     fourteen = {
@@ -29,9 +29,9 @@ class PinConfig:
         "reset": 27
     }
     indicators = {
-        "fault": 16,
-        "motion": 17,
-        "manual": 18
+        "fault": 2,
+        "motion": 3,
+        "manual": 4
     }
     reeds = {
         'upper_reed_switch': 'GP18',

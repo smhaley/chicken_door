@@ -25,8 +25,8 @@ class Operate:
         self.motion_indicator = indicators.motion
         self.manual_indicator = indicators.manual
         self.rtc = rtc
-        self.upper_reed = ReedSwitchControl(reeds['upper_reed_switch_pin'])
-        self.lower_reed = ReedSwitchControl(reeds['lower_reed_switch_pin'])
+        self.upper_reed = ReedSwitchControl(reeds['upper_reed_switch'])
+        self.lower_reed = ReedSwitchControl(reeds['lower_reed_switch'])
         self.up_time = params['UP_RUN_TIME']
         self.sun = sun
         self.status = None
@@ -40,6 +40,7 @@ class Operate:
         
     def _initialize_door(self):
         led.toggle()
+        self.fault_indicator(0)
         self._set_door_status()
         
     def _add_fault(self):

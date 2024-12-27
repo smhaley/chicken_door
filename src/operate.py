@@ -16,7 +16,7 @@ class DoorStatus:
 
 class Operate:
    
-    def __init__(self, dc_motor, buttons, indicators, rtc, upper_reed_switch_pin, lower_reed_switch_pin, sun, reed_buffer = 2.4, up_time = 32, max_run_time = 40):       
+    def __init__(self, dc_motor, buttons, indicators, rtc, reeds, sun, params):       
         self.dc_motor = dc_motor
         self.up_button = buttons.up_button
         self.down_button = buttons.down_button
@@ -25,14 +25,14 @@ class Operate:
         self.motion_indicator = indicators.motion
         self.manual_indicator = indicators.manual
         self.rtc = rtc
-        self.upper_reed = ReedSwitchControl(upper_reed_switch_pin)
-        self.lower_reed = ReedSwitchControl(lower_reed_switch_pin)
-        self.up_time = up_time
+        self.upper_reed = ReedSwitchControl(reeds['upper_reed_switch_pin'])
+        self.lower_reed = ReedSwitchControl(reeds['lower_reed_switch_pin'])
+        self.up_time = params['UP_RUN_TIME']
         self.sun = sun
         self.status = None
         self.fault = 0
-        self.max_run_time = max_run_time
-        self.reed_buffer = reed_buffer
+        self.max_run_time = params['MAX_RUN_TIME']
+        self.reed_buffer = params['REED_BUFFER']
         
         self.dc_motor.stop()
         self._initialize_door()
@@ -70,7 +70,7 @@ class Operate:
         sun_times = self.sun.getSunTimes(time_tuple)
         sun_rise = sun_times["sunrise"]["decimal"]
         sun_set = sun_times["sunset"]["decimal"]
-        return {"up": sun_rise, "down": sun_set + .5}
+        return {"up": sun_rise - .25, "down": sun_set + .5}
     
     def _get_hour(self, time):
         hour, mins = time[3:5]

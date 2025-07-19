@@ -1,6 +1,7 @@
 from time import sleep
 from reed import ReedSwitchStatus, ReedSwitchControl
 from machine import Pin
+import sys
 
 led = Pin("LED", Pin.OUT)
 
@@ -25,8 +26,8 @@ class Operate:
         self.motion_indicator = indicators.motion
         self.manual_indicator = indicators.manual
         self.rtc = rtc
-        self.upper_reed = ReedSwitchControl(reeds['upper_reed_switch'])
-        self.lower_reed = ReedSwitchControl(reeds['lower_reed_switch'])
+        self.upper_reed = reeds['upper_reed_switch']
+        self.lower_reed = reeds['lower_reed_switch']
         self.up_time = params['UP_RUN_TIME']
         self.sun = sun
         self.status = None
@@ -41,15 +42,23 @@ class Operate:
     def _initialize_door(self):
         led.toggle()
         self.fault_indicator(0)
+        self.manual_indicator(0)
         self._set_door_status()
+
         
     def _add_fault(self):
+        print('LOG-> Adding Fault')
         led.toggle()
         self.fault += 1
+        self.fault_indicator(1)
+        self.motion_indicator(0)
         self.dc_motor.stop()
     
     def _set_door_status(self):
-        status_key = (self.upper_reed.get_status(), self.lower_reed.get_status())
+        lower_status = ReedSwitchControl(self.lower_reed).get_status()
+        upper_status = ReedSwitchControl(self.upper_reed).get_status()
+        
+        status_key = (upper_status, lower_status)
         
         statuses = {
             (ReedSwitchStatus.OPEN, ReedSwitchStatus.OPEN): DoorStatus.MOTION,
@@ -79,13 +88,17 @@ class Operate:
     
     def _operate_door(self, direction):
         ticks = 0
-        check_adjustment = 5
+        check_adjustment = 3.5
         self.motion_indicator(1)
-        while self.status == DoorStatus.MOTION:
-                        
-            upper_status = self.upper_reed.get_status()
-            lower_status = self.lower_reed.get_status()
-            
+        while self.status == DoorStatus.MOTION:         
+            lower_status = ReedSwitchControl(self.lower_reed).get_status()
+            upper_status = ReedSwitchControl(self.upper_reed).get_status()
+
+            print('LOG-> In Motion')
+            print(f'LOG-> upper reed status: {upper_status}')
+            print(f'LOG-> lower reed status: {lower_status}')
+            print(f'LOG-> tick counter: {ticks}' )
+ 
             if direction == DoorDirection.UP and (upper_status == ReedSwitchStatus.CLOSED or ticks >= self.up_time * check_adjustment):
                 sleep(self.reed_buffer)
                 self.motion_indicator(0)
@@ -110,6 +123,7 @@ class Operate:
         
         
     def _automated_door_move(self, direction):
+        print(f'LOG-> Automated move: {direction}')
         self.status = DoorStatus.MOTION
         if direction == DoorDirection.UP:
             self.dc_motor.forward(100)
@@ -125,8 +139,10 @@ class Operate:
         if self.status == DoorStatus.MOTION:
             self._automated_door_move(DoorDirection.DOWN)   
         self._operate()
+            
         
     def _override_door(self, direction):
+        print('LOG -> Overriding door')
         self.manual_indicator(1)
         try:  
             if direction == DoorDirection.UP and self.status == DoorStatus.CLOSED:
@@ -158,7 +174,12 @@ class Operate:
     
             
     def _operate(self):
+        print('LOG -> in operate')
+        print(f'LOG -> faults: {self.fault}')
+        print(f'LOG -> door status: {self.status}')
         try:
+            if self.fault >= 1:
+                raise Exception('faults')
             while self.fault < 1:
                 now = self.rtc.get_time()
                 current_hour = self._get_hour(now)
@@ -188,7 +209,11 @@ class Operate:
                     break
     
                 sleep(1)
+                
         except:
+            print('LOG -> erroring out')
             self.fault_indicator(1)
             led.toggle()
             self.dc_motor.stop()
+            sys.exit()
+

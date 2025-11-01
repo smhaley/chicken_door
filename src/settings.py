@@ -3,7 +3,7 @@ class RunParameters:
     twelve = {
         'MAX_RUN_TIME': 45,
         'UP_RUN_TIME': 38,
-        'REED_BUFFER': 3.0
+        'REED_BUFFER': 1.8
         }
     fourteen = {
         'MAX_RUN_TIME': 45,

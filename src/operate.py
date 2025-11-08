@@ -40,7 +40,6 @@ class Operate:
 
         self.status = None
         self.fault = 0
-
         self.dc_motor.stop()
         self._initialize_door()
 
@@ -127,12 +126,14 @@ class Operate:
             log(f"tick={ticks}, direction={direction}, upper={upper_status}, lower={lower_status}")
 
             if direction == DoorDirection.UP and upper_status == ReedSwitchStatus.CLOSED:
+                sleep(.8)
                 self.motion_indicator(0)
                 self.dc_motor.stop()
                 self.status = DoorStatus.OPEN
                 break
 
             if direction == DoorDirection.DOWN and lower_status == ReedSwitchStatus.CLOSED:
+                sleep(.8)
                 self.motion_indicator(0)
                 self.dc_motor.stop()
                 self.status = DoorStatus.CLOSED
@@ -156,26 +157,33 @@ class Operate:
         self._operate_door(direction)
         self._set_door_status()
         self._operate()
+        
+    def _manual_action(self, direction):
+        log(f"Manual Action: {direction}", )
+        if self.status == DoorStatus.MOTION:
+            return
+        if direction == DoorDirection.UP and self.status == DoorStatus.CLOSED:
+            self._operate_door(direction)
+        if direction == DoorDirection.DOWN and self.status == DoorStatus.OPEN:
+            self._operate_door(direction)
 
     def _override_door(self, direction):
-        log(f"Manual override: {direction}")
+        log(f"Manual override: {direction}", )
+        
         self.manual_indicator(1)
         try:
-            if direction == DoorDirection.UP and self.status == DoorStatus.CLOSED:
-                self._operate_door(direction)
-            elif direction == DoorDirection.DOWN and self.status == DoorStatus.OPEN:
-                self._operate_door(direction)
+            self._manual_action(direction)
 
             while True:
                 if self.reset_button.value():
                     self.manual_indicator(0)
                     break
                 if self.up_button.value():
-                    self._override_door(DoorDirection.UP)
-                    break
+                    self._manual_action(DoorDirection.UP)
+                    sleep(1)
                 if self.down_button.value():
-                    self._override_door(DoorDirection.DOWN)
-                    break
+                    self._manual_action(DoorDirection.DOWN)
+                    sleep(1)
                 sleep(1)
 
 
@@ -196,8 +204,7 @@ class Operate:
                 current_hour = self._get_hour(now)
                 self._set_door_status()
                 sun_times = self._get_up_down_hours(now)
-
-                #button based operations
+                  
                 if self.up_button.value():
                     self._override_door(DoorDirection.UP)
                     break
@@ -224,3 +231,4 @@ class Operate:
             led.toggle()
             self.dc_motor.stop()
             sys.exit()
+

@@ -47,6 +47,7 @@ class Operate:
     def _initialize_door(self):
         led.toggle()
         self.fault_indicator(0)
+        self.motion_indicator(0)
         self.manual_indicator(0)
         self._set_door_status()
         log(f"Initialized status: {self.status}")
@@ -126,7 +127,7 @@ class Operate:
             log(f"tick={ticks}, direction={direction}, upper={upper_status}, lower={lower_status}")
 
             if direction == DoorDirection.UP and upper_status == ReedSwitchStatus.CLOSED:
-                sleep(.8)
+                sleep(1.2)
                 self.motion_indicator(0)
                 self.dc_motor.stop()
                 self.status = DoorStatus.OPEN
@@ -195,13 +196,17 @@ class Operate:
         """
         upper_status = ReedSwitchControl(self.upper_reed).get_status()
         lower_status = ReedSwitchControl(self.lower_reed).get_status()
+        
+        log(f"upper_status: {upper_status}; lower_status {lower_status} blinkstate {blink_state}")
 
         if upper_status == ReedSwitchStatus.CLOSED:
+            log('upper zone')
             self.manual_indicator(blink_state)
         else:
             self.manual_indicator(0)
         
         if lower_status == ReedSwitchStatus.CLOSED:
+            log('lower zone')
             self.motion_indicator(blink_state)
         else:
             self.motion_indicator(0)
@@ -225,18 +230,10 @@ class Operate:
                 if self.down_button.value():
                     self._override_door(DoorDirection.DOWN)
                 
-                #Indicate of the door is open
+                #Indicate door OPEN or CLOSED
                 blink_state = 1 - blink_state
                 self._update_position_indicator(blink_state)
                 
-                ## signal door open status
-                if self.status == DoorStatus.OPEN:
-                    self.fault_indicator(1)
-                    self.manual_indicator(1)  
-                elif self.status == DoorStatus.CLOSED:
-                    self.fault_indicator(0)
-                    self.manual_indicator(0)
-
                 # sun based operations
                 if current_hour < sun_times["up"] and self.status == DoorStatus.OPEN:
                     self._automated_door_move(DoorDirection.DOWN)
@@ -251,7 +248,9 @@ class Operate:
             log(f"Erroring out: {e}")
             self.fault_indicator(1)
             led.toggle()
-            self._update_position_indicator(True)#Red + Blue = Error open Red+White Error Closed 
+            #Red + Blue = Error open; Red+White Error Closed 
+            self._update_position_indicator(1)
             self.dc_motor.stop()
             sys.exit()
+
 

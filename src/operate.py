@@ -96,8 +96,8 @@ class Operate:
     def _get_up_down_hours(self, time_tuple):
         sun_times = self.sun.getSunTimes(time_tuple)
         return {
-            "up": sun_times["sunrise"]["decimal"] - 1,
-            "down": sun_times["sunset"]["decimal"] + 0.5,
+            "up": sun_times["sunrise"]["decimal"] - 0.8,
+            "down": sun_times["sunset"]["decimal"] + 0.8,
         }
 
     def _get_hour(self, time):
@@ -154,7 +154,7 @@ class Operate:
 
     def _automated_door_move(self, direction):
         log(f"Automated move: {direction}")
-
+        self._turn_off_all_indicators()
         self._operate_door(direction)
         self._set_door_status()
         
@@ -169,7 +169,7 @@ class Operate:
 
     def _override_door(self, direction):
         log(f"Manual override: {direction}", )
-        
+        self._turn_off_all_indicators()
         self.manual_indicator(1)
         try:
             self._manual_action(direction)
@@ -189,27 +189,46 @@ class Operate:
             log(f"Override error: {e}")
             self.dc_motor.stop()
 
+    def _turn_off_all_indicators(self):
+        self.manual_indicator(0)
+        self.motion_indicator(0)
+        self.fault_indicator(0)
 
-    def _update_position_indicator(self, blink_state):
+
+    def _update_position_indicator(self, blink_state, sun_times, current_hour):
         """
         Independent door monitor
+        Only indicate for 1 hour after sunset and 1 hour befores
         """
         upper_status = ReedSwitchControl(self.upper_reed).get_status()
         lower_status = ReedSwitchControl(self.lower_reed).get_status()
         
         log(f"upper_status: {upper_status}; lower_status {lower_status} blinkstate {blink_state}")
 
+        show_closed_window = sun_times["up"] - 1.5 < current_hour < sun_times["down"] + 3.5 
+        expect_open = sun_times["up"] < current_hour < sun_times["down"]
+
         if upper_status == ReedSwitchStatus.CLOSED:
-            log('upper zone')
             self.manual_indicator(blink_state)
         else:
             self.manual_indicator(0)
         
+        
         if lower_status == ReedSwitchStatus.CLOSED:
-            log('lower zone')
-            self.motion_indicator(blink_state)
+            if show_closed_window:
+                self.motion_indicator(blink_state)
+            else:
+                self.motion_indicator(0)
+
+            if expect_open:
+                self.fault_indicator(blink_state)
+            else:
+                self.fault_indicator(0)
+
         else:
             self.motion_indicator(0)
+            self.fault_indicator(0)
+
         
 
     def _operate(self):
@@ -232,7 +251,7 @@ class Operate:
                 
                 #Indicate door OPEN or CLOSED
                 blink_state = 1 - blink_state
-                self._update_position_indicator(blink_state)
+                self._update_position_indicator(blink_state, sun_times, current_hour)
                 
                 # sun based operations
                 if current_hour < sun_times["up"] and self.status == DoorStatus.OPEN:
@@ -248,9 +267,11 @@ class Operate:
             log(f"Erroring out: {e}")
             self.fault_indicator(1)
             led.toggle()
-            #Red + Blue = Error open; Red+White Error Closed 
+
+            self.fault_indicator(1)
             self._update_position_indicator(1)
             self.dc_motor.stop()
             sys.exit()
+
 
 
